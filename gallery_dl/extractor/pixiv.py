@@ -6,10 +6,10 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extract images and ugoira from https://www.pixiv.net/"""
+"""Extractors for https://www.pixiv.net/"""
 
 from .common import Extractor, Message
-from .. import text, exception
+from .. import text, util, exception
 from ..cache import cache
 from datetime import datetime, timedelta
 import itertools
@@ -29,14 +29,28 @@ class PixivExtractor(Extractor):
         Extractor.__init__(self, match)
         self.api = PixivAppAPI(self)
         self.load_ugoira = self.config("ugoira", True)
-        self.translated_tags = self.config("translated-tags", False)
+        self.max_posts = self.config("max-posts", 0)
 
     def items(self):
-        tkey = "translated_name" if self.translated_tags else "name"
+        tags = self.config("tags", "japanese")
+        if tags == "original":
+            transform_tags = None
+        elif tags == "translated":
+            def transform_tags(work):
+                work["tags"] = list(set(
+                    tag["translated_name"] or tag["name"]
+                    for tag in work["tags"]))
+        else:
+            def transform_tags(work):
+                work["tags"] = [tag["name"] for tag in work["tags"]]
+
         ratings = {0: "General", 1: "R-18", 2: "R-18G"}
         metadata = self.metadata()
 
-        for work in self.works():
+        works = self.works()
+        if self.max_posts:
+            works = itertools.islice(works, self.max_posts)
+        for work in works:
             if not work["user"]["id"]:
                 continue
 
@@ -45,12 +59,10 @@ class PixivExtractor(Extractor):
             del work["meta_single_page"]
             del work["image_urls"]
             del work["meta_pages"]
+
+            if transform_tags:
+                transform_tags(work)
             work["num"] = 0
-            if self.translated_tags:
-                work["untranslated_tags"] = [
-                    tag["name"] for tag in work["tags"]
-                ]
-            work["tags"] = [tag[tkey] or tag["name"] for tag in work["tags"]]
             work["date"] = text.parse_datetime(work["create_date"])
             work["rating"] = ratings.get(work["x_restrict"])
             work["suffix"] = ""
@@ -66,6 +78,7 @@ class PixivExtractor(Extractor):
                 url = ugoira["zip_urls"]["medium"].replace(
                     "_ugoira600x600", "_ugoira1920x1080")
                 work["frames"] = ugoira["frames"]
+                work["_http_adjust_extension"] = False
                 yield Message.Url, url, text.nameext_from_url(url, work)
 
             elif work["page_count"] == 1:
@@ -115,7 +128,8 @@ class PixivUserExtractor(PixivExtractor):
         }),
         # deleted account
         ("http://www.pixiv.net/member_illust.php?id=173531", {
-            "count": 0,
+            "options": (("metadata", True),),
+            "exception": exception.NotFoundError,
         }),
         ("https://www.pixiv.net/en/users/173530"),
         ("https://www.pixiv.net/en/users/173530/manga"),
@@ -137,6 +151,11 @@ class PixivUserExtractor(PixivExtractor):
             t2 = text.parse_query(t2).get("tag")
         self.user_id = u1 or u2 or u3
         self.tag = t1 or t2
+
+    def metadata(self):
+        if self.config("metadata"):
+            return {"user": self.api.user_detail(self.user_id)}
+        return {}
 
     def works(self):
         works = self.api.user_illusts(self.user_id)
@@ -302,34 +321,30 @@ class PixivFavoriteExtractor(PixivExtractor):
 
     def __init__(self, match):
         uid, kind, self.tag, query = match.groups()
+        query = text.parse_query(query)
 
-        if query:
-            self.query = text.parse_query(query)
-            uid = self.query.get("id")
+        if not uid:
+            uid = query.get("id")
             if not uid:
                 self.subcategory = "bookmark"
-            elif self.query.get("type") == "user":
-                self.subcategory = "following"
-                self.items = self._items_following
-        else:
-            self.query = {}
-            if kind == "following":
-                self.subcategory = "following"
-                self.items = self._items_following
+
+        if kind == "following" or query.get("type") == "user":
+            self.subcategory = "following"
+            self.items = self._items_following
 
         PixivExtractor.__init__(self, match)
+        self.query = query
         self.user_id = uid
 
     def works(self):
         tag = None
-        restrict = "public"
-
         if "tag" in self.query:
             tag = text.unquote(self.query["tag"])
         elif self.tag:
             tag = text.unquote(self.tag)
 
-        if "rest" in self.query and self.query["rest"] == "hide":
+        restrict = "public"
+        if self.query.get("rest") == "hide":
             restrict = "private"
 
         return self.api.user_bookmarks_illust(self.user_id, tag, restrict)
@@ -345,9 +360,11 @@ class PixivFavoriteExtractor(PixivExtractor):
         return {"user_bookmark": user}
 
     def _items_following(self):
-        yield Message.Version, 1
+        restrict = "public"
+        if self.query.get("rest") == "hide":
+            restrict = "private"
 
-        for preview in self.api.user_following(self.user_id):
+        for preview in self.api.user_following(self.user_id, restrict):
             user = preview["user"]
             user["_extractor"] = PixivUserExtractor
             url = "https://www.pixiv.net/users/{}".format(user["id"])
@@ -500,6 +517,48 @@ class PixivFollowExtractor(PixivExtractor):
         return {"user_follow": self.api.user}
 
 
+class PixivPixivisionExtractor(PixivExtractor):
+    """Extractor for illustrations from a pixivision article"""
+    subcategory = "pixivision"
+    directory_fmt = ("{category}", "pixivision",
+                     "{pixivision_id} {pixivision_title}")
+    archive_fmt = "V{pixivision_id}_{id}{suffix}.{extension}"
+    pattern = r"(?:https?://)?(?:www\.)?pixivision\.net/(?:en/)?a/(\d+)"
+    test = (
+        ("https://www.pixivision.net/en/a/2791"),
+        ("https://pixivision.net/a/2791", {
+            "count": 7,
+            "keyword": {
+                "pixivision_id": "2791",
+                "pixivision_title": "What's your favorite music? Editor’s "
+                                    "picks featuring: “CD Covers”!",
+            },
+        }),
+    )
+
+    def __init__(self, match):
+        PixivExtractor.__init__(self, match)
+        self.pixivision_id = match.group(1)
+
+    def works(self):
+        return (
+            self.api.illust_detail(illust_id)
+            for illust_id in util.unique_sequence(text.extract_iter(
+                self.page, '<a href="https://www.pixiv.net/en/artworks/', '"'))
+        )
+
+    def metadata(self):
+        url = "https://www.pixivision.net/en/a/" + self.pixivision_id
+        headers = {"User-Agent": "Mozilla/5.0"}
+        self.page = self.request(url, headers=headers).text
+
+        title = text.extract(self.page, '<title>', ' - pixivision<')[0]
+        return {
+            "pixivision_id"   : self.pixivision_id,
+            "pixivision_title": text.unescape(title),
+        }
+
+
 class PixivAppAPI():
     """Minimal interface for the Pixiv App API for mobile devices
 
@@ -603,8 +662,8 @@ class PixivAppAPI():
         params = {"user_id": user_id}
         return self._call("v1/user/detail", params)["user"]
 
-    def user_following(self, user_id):
-        params = {"user_id": user_id}
+    def user_following(self, user_id, restrict="public"):
+        params = {"user_id": user_id, "restrict": restrict}
         return self._pagination("v1/user/following", params, "user_previews")
 
     def user_illusts(self, user_id):

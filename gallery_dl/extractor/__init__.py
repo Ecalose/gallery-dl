@@ -31,6 +31,8 @@ modules = [
     "erome",
     "exhentai",
     "fallenangels",
+    "fanbox",
+    "fantia",
     "flickr",
     "furaffinity",
     "fuskator",
@@ -72,6 +74,7 @@ modules = [
     "mangakakalot",
     "manganelo",
     "mangapark",
+    "mangasee",
     "mangoxo",
     "myhentaigallery",
     "myportfolio",
@@ -103,6 +106,7 @@ modules = [
     "sankaku",
     "sankakucomplex",
     "seiga",
+    "seisoparty",
     "senmanga",
     "sexcom",
     "simplyhentai",
@@ -139,6 +143,7 @@ modules = [
     "recursive",
     "oauth",
     "test",
+    "ytdl",
 ]
 
 

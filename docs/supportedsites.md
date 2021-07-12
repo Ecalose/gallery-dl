@@ -152,6 +152,12 @@ Consider all sites to be NSFW unless otherwise known.
     <td></td>
 </tr>
 <tr>
+    <td>Fantia</td>
+    <td>https://fantia.jp/</td>
+    <td>Creators, Posts</td>
+    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+</tr>
+<tr>
     <td>Flickr</td>
     <td>https://www.flickr.com/</td>
     <td>Albums, Favorites, Galleries, Groups, individual Images, Search Results, User Profiles</td>
@@ -178,7 +184,7 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>Gelbooru</td>
     <td>https://gelbooru.com/</td>
-    <td>Pools, Posts, Tag Searches</td>
+    <td>Pools, Posts, Redirects, Tag Searches</td>
     <td></td>
 </tr>
 <tr>
@@ -255,7 +261,7 @@ Consider all sites to be NSFW unless otherwise known.
 </tr>
 <tr>
     <td>ImageBam</td>
-    <td>http://www.imagebam.com/</td>
+    <td>https://www.imagebam.com/</td>
     <td>Galleries, individual Images</td>
     <td></td>
 </tr>
@@ -328,13 +334,13 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>Inkbunny</td>
     <td>https://inkbunny.net/</td>
-    <td>Posts, User Profiles</td>
+    <td>Favorites, Posts, User Profiles</td>
     <td>Supported</td>
 </tr>
 <tr>
     <td>Instagram</td>
     <td>https://www.instagram.com/</td>
-    <td>Channels, Highlights, Posts, Reels, Saved Posts, Stories, Tag Searches, User Profiles</td>
+    <td>Channels, Highlights, Posts, Reels, Saved Posts, Stories, Tag Searches, Tagged Posts, User Profiles</td>
     <td>Supported</td>
 </tr>
 <tr>
@@ -394,7 +400,7 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>Manga Fox</td>
     <td>https://fanfox.net/</td>
-    <td>Chapters</td>
+    <td>Chapters, Manga</td>
     <td></td>
 </tr>
 <tr>
@@ -406,8 +412,8 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>MangaDex</td>
     <td>https://mangadex.org/</td>
-    <td>Chapters, Manga</td>
-    <td></td>
+    <td>Chapters, Followed Feed, Manga</td>
+    <td>Supported</td>
 </tr>
 <tr>
     <td>MangaKakalot</td>
@@ -416,14 +422,20 @@ Consider all sites to be NSFW unless otherwise known.
     <td></td>
 </tr>
 <tr>
-    <td>Manganelo</td>
-    <td>https://manganelo.com/</td>
+    <td>Manganato</td>
+    <td>https://manganato.com/</td>
     <td>Chapters, Manga</td>
     <td></td>
 </tr>
 <tr>
     <td>MangaPark</td>
     <td>https://mangapark.net/</td>
+    <td>Chapters, Manga</td>
+    <td></td>
+</tr>
+<tr>
+    <td>MangaSee</td>
+    <td>https://mangasee123.com/</td>
     <td>Chapters, Manga</td>
     <td></td>
 </tr>
@@ -521,7 +533,7 @@ Consider all sites to be NSFW unless otherwise known.
     <td>Pillowfort</td>
     <td>https://www.pillowfort.social/</td>
     <td>Posts, User Profiles</td>
-    <td></td>
+    <td>Supported</td>
 </tr>
 <tr>
     <td>Pinterest</td>
@@ -538,8 +550,14 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>Pixiv</td>
     <td>https://www.pixiv.net/</td>
-    <td>Favorites, Follows, pixiv.me Links, Rankings, Search Results, User Profiles, individual Images</td>
+    <td>Favorites, Follows, pixiv.me Links, pixivision, Rankings, Search Results, User Profiles, individual Images</td>
     <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+</tr>
+<tr>
+    <td>pixivFANBOX</td>
+    <td>https://www.fanbox.cc/</td>
+    <td>Creators, Posts</td>
+    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr>
     <td>Pixnet</td>
@@ -585,7 +603,7 @@ Consider all sites to be NSFW unless otherwise known.
 </tr>
 <tr>
     <td>Read Comic Online</td>
-    <td>https://readcomiconline.to/</td>
+    <td>https://readcomiconline.li/</td>
     <td>Comic Issues, Comics</td>
     <td></td>
 </tr>
@@ -617,6 +635,12 @@ Consider all sites to be NSFW unless otherwise known.
     <td>Sankaku Complex</td>
     <td>https://www.sankakucomplex.com/</td>
     <td>Articles, Tag Searches</td>
+    <td></td>
+</tr>
+<tr>
+    <td>Seiso</td>
+    <td>https://seiso.party/</td>
+    <td>Posts, User Profiles</td>
     <td></td>
 </tr>
 <tr>
@@ -966,6 +990,12 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>The /b/ Archive</td>
     <td>https://thebarchive.com/</td>
+    <td>Boards, Search Results, Threads</td>
+    <td></td>
+</tr>
+<tr>
+    <td>Wakarimasen Archive</td>
+    <td>https://archive.wakarimasen.moe/</td>
     <td>Boards, Search Results, Threads</td>
     <td></td>
 </tr>

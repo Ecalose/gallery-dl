@@ -90,7 +90,9 @@ BASE_PATTERN = FoolfuukaExtractor.update({
     },
     "thebarchive": {
         "root": "https://thebarchive.com",
-        "pattern": r"thebarchive\.com",
+    },
+    "wakarimasen": {
+        "root": "https://archive.wakarimasen.moe",
     },
 })
 
@@ -137,6 +139,9 @@ class FoolfuukaThreadExtractor(FoolfuukaExtractor):
         ("https://thebarchive.com/b/thread/739772332/", {
             "url": "e8b18001307d130d67db31740ce57c8561b5d80c",
         }),
+        ("https://archive.wakarimasen.moe/a/thread/223157648/", {
+            "url": "fef0758d2eb81b1ba783051fd5ec491d70107a78",
+        }),
     )
 
     def __init__(self, match):
@@ -175,6 +180,7 @@ class FoolfuukaBoardExtractor(FoolfuukaExtractor):
         ("https://archive.nyafuu.org/c/"),
         ("https://rbt.asia/g/"),
         ("https://thebarchive.com/b/"),
+        ("https://archive.wakarimasen.moe/a/"),
     )
 
     def __init__(self, match):
@@ -218,6 +224,7 @@ class FoolfuukaSearchExtractor(FoolfuukaExtractor):
         ("https://archive.nyafuu.org/_/search/text/test/"),
         ("https://rbt.asia/_/search/text/test/"),
         ("https://thebarchive.com/_/search/text/test/"),
+        ("https://archive.wakarimasen.moe/a/search/text/test/"),
     )
 
     def __init__(self, match):

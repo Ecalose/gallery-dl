@@ -6,23 +6,16 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-from __future__ import unicode_literals, print_function
+import sys
+import json
+import logging
+from . import version, config, option, output, extractor, job, util, exception
 
 __author__ = "Mike Fährmann"
 __copyright__ = "Copyright 2014-2021 Mike Fährmann"
 __license__ = "GPLv2"
 __maintainer__ = "Mike Fährmann"
 __email__ = "mike_faehrmann@web.de"
-
-import sys
-
-if sys.hexversion < 0x3040000:
-    sys.exit("Python 3.4+ required")
-
-import json
-import logging
-from . import version, config, option, output, extractor, job, util, exception
-
 __version__ = version.__version__
 
 
@@ -126,6 +119,8 @@ def main():
             config.set((), "postprocessors", args.postprocessors)
         if args.abort:
             config.set((), "skip", "abort:" + str(args.abort))
+        if args.terminate:
+            config.set((), "skip", "terminate:" + str(args.terminate))
         for opts in args.options:
             config.set(*opts)
 
@@ -186,7 +181,7 @@ def main():
         elif args.clear_cache:
             from . import cache
             log = logging.getLogger("cache")
-            cnt = cache.clear()
+            cnt = cache.clear(args.clear_cache)
 
             if cnt is None:
                 log.error("Database file not available")
@@ -249,6 +244,8 @@ def main():
                             retval |= jobtype(url.value).run()
                     else:
                         retval |= jobtype(url).run()
+                except exception.TerminateExtraction:
+                    pass
                 except exception.NoExtractorError:
                     log.error("No suitable extractor found for '%s'", url)
                     retval |= 64

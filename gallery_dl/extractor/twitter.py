@@ -32,10 +32,11 @@ class TwitterExtractor(Extractor):
     def __init__(self, match):
         Extractor.__init__(self, match)
         self.user = match.group(1)
-        self.retweets = self.config("retweets", True)
+        self.textonly = self.config("text-tweets", False)
+        self.retweets = self.config("retweets", False)
         self.replies = self.config("replies", True)
         self.twitpic = self.config("twitpic", False)
-        self.quoted = self.config("quoted", True)
+        self.quoted = self.config("quoted", False)
         self.videos = self.config("videos", True)
         self.cards = self.config("cards", False)
         self._user_cache = {}
@@ -43,7 +44,6 @@ class TwitterExtractor(Extractor):
     def items(self):
         self.login()
         metadata = self.metadata()
-        yield Message.Version, 1
 
         for tweet in self.tweets():
 
@@ -64,7 +64,7 @@ class TwitterExtractor(Extractor):
                 self._extract_card(tweet, files)
             if self.twitpic:
                 self._extract_twitpic(tweet, files)
-            if not files:
+            if not files and not self.textonly:
                 continue
 
             tdata = self._transform_tweet(tweet)
@@ -113,18 +113,16 @@ class TwitterExtractor(Extractor):
                     "url"      : base + "orig",
                     "width"    : width,
                     "height"   : height,
-                    "_fallback": self._image_fallback(base, url + ":"),
+                    "_fallback": self._image_fallback(base),
                 }))
             else:
                 files.append({"url": media["media_url"]})
 
     @staticmethod
-    def _image_fallback(new, old):
-        yield old + "orig"
-
-        for size in ("large", "medium", "small"):
-            yield new + size
-            yield old + size
+    def _image_fallback(base):
+        yield base + "large"
+        yield base + "medium"
+        yield base + "small"
 
     def _extract_card(self, tweet, files):
         card = tweet["card"]
@@ -168,7 +166,6 @@ class TwitterExtractor(Extractor):
                 tweet["created_at"], "%a %b %d %H:%M:%S %z %Y"),
             "user"          : self._transform_user(tweet["user"]),
             "lang"          : tweet["lang"],
-            "content"       : tweet["full_text"],
             "favorite_count": tweet["favorite_count"],
             "quote_count"   : tweet["quote_count"],
             "reply_count"   : tweet["reply_count"],
@@ -186,6 +183,14 @@ class TwitterExtractor(Extractor):
                 "name": u["screen_name"],
                 "nick": u["name"],
             } for u in mentions]
+
+        content = tweet["full_text"]
+        urls = entities.get("urls")
+        if urls:
+            for url in urls:
+                content = content.replace(url["url"], url["expanded_url"])
+        txt, _, tco = content.rpartition(" ")
+        tdata["content"] = txt if tco.startswith("https://t.co/") else content
 
         if "in_reply_to_screen_name" in tweet:
             tdata["reply_to"] = tweet["in_reply_to_screen_name"]
@@ -398,7 +403,6 @@ class TwitterFollowingExtractor(TwitterExtractor):
 class TwitterSearchExtractor(TwitterExtractor):
     """Extractor for all images from a search timeline"""
     subcategory = "search"
-    directory_fmt = ("{category}", "Search", "{search}")
     pattern = BASE_PATTERN + r"/search/?\?(?:[^&#]+&)*q=([^&#]+)"
     test = ("https://twitter.com/search?q=nature", {
         "range": "1-40",
@@ -448,14 +452,14 @@ class TwitterTweetExtractor(TwitterExtractor):
             "options": (("replies", False),),
             "count": 0,
         }),
-        # quoted tweet (#526, #854)
+        # "quoted" option (#854)
         ("https://twitter.com/StobiesGalaxy/status/1270755918330896395", {
+            "options": (("quoted", True),),
             "pattern": r"https://pbs\.twimg\.com/media/Ea[KG].+=jpg",
             "count": 8,
         }),
-        # "quoted" option (#854)
+        # quoted tweet (#526, #854)
         ("https://twitter.com/StobiesGalaxy/status/1270755918330896395", {
-            "options": (("quoted", False),),
             "pattern": r"https://pbs\.twimg\.com/media/EaK.+=jpg",
             "count": 4,
         }),
@@ -480,14 +484,20 @@ class TwitterTweetExtractor(TwitterExtractor):
             "options": (("retweets", "original"),),
             "count": 2,
             "keyword": {
-                "tweet_id": 1296296016002547713,
-                "date"    : "dt:2020-08-20 04:00:28",
+                "tweet_id"  : 1296296016002547713,
+                "retweet_id": 1296296016002547713,
+                "date"      : "dt:2020-08-20 04:00:28",
             },
         }),
         # all Tweets from a conversation (#1319)
         ("https://twitter.com/BlankArts_/status/1323314488611872769", {
             "options": (("conversations", True),),
             "count": ">= 50",
+        }),
+        # retweet with missing media entities (#1555)
+        ("https://twitter.com/morino_ya/status/1392763691599237121", {
+            "options": (("retweets", True),),
+            "count": 4,
         }),
     )
 
@@ -515,18 +525,17 @@ class TwitterImageExtractor(Extractor):
         self.id, self.fmt = match.groups()
 
     def items(self):
-        base = "https://pbs.twimg.com/media/" + self.id
-        new = base + "?format=" + self.fmt + "&name="
-        old = base + "." + self.fmt + ":"
+        base = "https://pbs.twimg.com/media/{}?format={}&name=".format(
+            self.id, self.fmt)
 
         data = {
             "filename": self.id,
             "extension": self.fmt,
-            "_fallback": TwitterExtractor._image_fallback(new, old),
+            "_fallback": TwitterExtractor._image_fallback(base),
         }
 
         yield Message.Directory, data
-        yield Message.Url, new + "orig", data
+        yield Message.Url, base + "orig", data
 
 
 class TwitterAPI():
@@ -701,7 +710,7 @@ class TwitterAPI():
     def _guest_token(self):
         root = "https://api.twitter.com"
         endpoint = "/1.1/guest/activate.json"
-        return self._call(endpoint, None, root, "POST")["guest_token"]
+        return str(self._call(endpoint, None, root, "POST")["guest_token"])
 
     def _call(self, endpoint, params, root=None, method="GET"):
         if root is None:
@@ -798,10 +807,15 @@ class TwitterAPI():
                     if original_retweets:
                         if not retweet:
                             continue
+                        retweet["retweeted_status_id_str"] = retweet["id_str"]
                         retweet["_retweet_id_str"] = tweet["id_str"]
                         tweet = retweet
                     elif retweet:
                         tweet["author"] = users[retweet["user_id_str"]]
+                        if "extended_entities" in retweet and \
+                                "extended_entities" not in tweet:
+                            tweet["extended_entities"] = \
+                                retweet["extended_entities"]
                 tweet["user"] = users[tweet["user_id_str"]]
                 yield tweet
 

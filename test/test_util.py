@@ -134,6 +134,7 @@ class TestISO639_1(unittest.TestCase):
         self._run_test(util.code_to_language, {
             ("en",): "English",
             ("FR",): "French",
+            ("ja",): "Japanese",
             ("xx",): None,
             (""  ,): None,
             (None,): None,
@@ -149,6 +150,7 @@ class TestISO639_1(unittest.TestCase):
         self._run_test(util.language_to_code, {
             ("English",): "en",
             ("fRENch",): "fr",
+            ("Japanese",): "ja",
             ("xx",): None,
             (""  ,): None,
             (None,): None,
@@ -269,6 +271,7 @@ class TestFormatter(unittest.TestCase):
         "s": " \n\r\tSPACE    ",
         "u": "%27%3C%20/%20%3E%27",
         "t": 1262304000,
+        "dt": datetime.datetime(2010, 1, 1),
         "name": "Name",
         "title1": "Title",
         "title2": "",
@@ -293,6 +296,7 @@ class TestFormatter(unittest.TestCase):
         self._run_test("{n!S}", "")
         self._run_test("{t!d}", datetime.datetime(2010, 1, 1))
         self._run_test("{t!d:%Y-%m-%d}", "2010-01-01")
+        self._run_test("{dt!T}", "1262304000")
 
         with self.assertRaises(KeyError):
             self._run_test("{a!q}", "hello world")
@@ -484,6 +488,37 @@ class TestOther(unittest.TestCase):
         with self.assertRaises(ValueError):
             func(3)
 
+    def test_identity(self):
+        for value in (123, "foo", [1, 2, 3], (1, 2, 3), {1: 2}, None):
+            self.assertIs(util.identity(value), value)
+
+    def test_noop(self):
+        self.assertEqual(util.noop(), None)
+
+    def test_compile_expression(self):
+        expr = util.compile_expression("1 + 2 * 3")
+        self.assertEqual(expr(), 7)
+        self.assertEqual(expr({"a": 1, "b": 2, "c": 3}), 7)
+        self.assertEqual(expr({"a": 9, "b": 9, "c": 9}), 7)
+
+        expr = util.compile_expression("a + b * c")
+        self.assertEqual(expr({"a": 1, "b": 2, "c": 3}), 7)
+        self.assertEqual(expr({"a": 9, "b": 9, "c": 9}), 90)
+
+        with self.assertRaises(NameError):
+            expr()
+        with self.assertRaises(NameError):
+            expr({"a": 2})
+
+        with self.assertRaises(SyntaxError):
+            util.compile_expression("")
+        with self.assertRaises(SyntaxError):
+            util.compile_expression("x++")
+
+        expr = util.compile_expression("1 and abort()")
+        with self.assertRaises(exception.StopExtraction):
+            expr()
+
     def test_generate_token(self):
         tokens = set()
         for _ in range(100):
@@ -567,6 +602,11 @@ class TestOther(unittest.TestCase):
         self.assertEqual(f([1])  , "1")
         self.assertEqual(f(["a", "b", "c"]), "a, b, c")
         self.assertEqual(f([1, 2, 3]), "1, 2, 3")
+
+    def test_to_timestamp(self, f=util.to_timestamp):
+        self.assertEqual(f(util.EPOCH), "0")
+        self.assertEqual(f(datetime.datetime(2010, 1, 1)), "1262304000")
+        self.assertEqual(f(None), "")
 
     def test_universal_none(self):
         obj = util.NONE

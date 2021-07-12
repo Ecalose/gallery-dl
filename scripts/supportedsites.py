@@ -33,6 +33,7 @@ CATEGORY_MAP = {
     "e-hentai"       : "E-Hentai",
     "exhentai"       : "ExHentai",
     "fallenangels"   : "Fallen Angels Scans",
+    "fanbox"         : "pixivFANBOX",
     "fashionnova"    : "Fashion Nova",
     "furaffinity"    : "Fur Affinity",
     "hbrowse"        : "HBrowse",
@@ -65,7 +66,9 @@ CATEGORY_MAP = {
     "mangafox"       : "Manga Fox",
     "mangahere"      : "Manga Here",
     "mangakakalot"   : "MangaKakalot",
+    "manganelo"      : "Manganato",
     "mangapark"      : "MangaPark",
+    "mangasee"       : "MangaSee",
     "mangastream"    : "Manga Stream",
     "mastodon.social": "mastodon.social",
     "myhentaigallery": "My Hentai Gallery",
@@ -88,6 +91,7 @@ CATEGORY_MAP = {
     "sankakucomplex" : "Sankaku Complex",
     "seaotterscans"  : "Sea Otter Scans",
     "seiga"          : "Niconico Seiga",
+    "seisoparty"     : "Seiso",
     "senmanga"       : "Sen Manga",
     "sensescans"     : "Sense-Scans",
     "sexcom"         : "Sex.com",
@@ -106,6 +110,7 @@ CATEGORY_MAP = {
     "vidyart"        : "/v/idyart",
     "vk"             : "VK",
     "vsco"           : "VSCO",
+    "wakarimasen"    : "Wakarimasen Archive",
     "webtoons"       : "Webtoon",
     "wikiart"        : "WikiArt.org",
     "worldthree"     : "World Three",
@@ -145,6 +150,10 @@ SUBCATEGORY_MAP = {
     "instagram": {
         "posts": "",
         "saved": "Saved Posts",
+        "tagged": "Tagged Posts",
+    },
+    "mangadex": {
+        "feed" : "Followed Feed",
     },
     "newgrounds": {
         "art"  : "Art",
@@ -157,6 +166,7 @@ SUBCATEGORY_MAP = {
     },
     "pixiv": {
         "me"  : "pixiv.me Links",
+        "pixivision": "pixivision",
         "work": "individual Images",
     },
     "sankaku": {
@@ -207,18 +217,22 @@ AUTH_MAP = {
     "e621"           : "Supported",
     "e-hentai"       : "Supported",
     "exhentai"       : "Supported",
+    "fanbox"         : _COOKIES,
+    "fantia"         : _COOKIES,
     "flickr"         : _OAUTH,
     "furaffinity"    : _COOKIES,
     "idolcomplex"    : "Supported",
     "imgbb"          : "Supported",
     "inkbunny"       : "Supported",
     "instagram"      : "Supported",
+    "mangadex"       : "Supported",
     "mangoxo"        : "Supported",
     "mastodon.social": _OAUTH,
     "newgrounds"     : "Supported",
     "nijie"          : "Required",
     "patreon"        : _COOKIES,
     "pawoo"          : _OAUTH,
+    "pillowfort"     : "Supported",
     "pinterest"      : "Supported",
     "pixiv"          : _OAUTH,
     "ponybooru"      : "API Key",
@@ -240,6 +254,7 @@ IGNORE_LIST = (
     "oauth",
     "recursive",
     "test",
+    "ytdl",
 )
 
 

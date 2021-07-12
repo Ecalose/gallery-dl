@@ -12,6 +12,7 @@ import time
 import errno
 import logging
 import operator
+import functools
 import collections
 from . import extractor, downloader, postprocessor
 from . import config, text, util, output, exception
@@ -27,8 +28,11 @@ class Job():
             extr = extractor.find(extr)
         if not extr:
             raise exception.NoExtractorError()
+
         self.extractor = extr
         self.pathfmt = None
+        self.kwdict = {}
+        self.status = 0
 
         self._logger_extra = {
             "job"      : self,
@@ -39,31 +43,27 @@ class Job():
         extr.log = self._wrap_logger(extr.log)
         extr.log.debug("Using %s for '%s'", extr.__class__.__name__, extr.url)
 
-        self.status = 0
-        self.pred_url = self._prepare_predicates("image", True)
-        self.pred_queue = self._prepare_predicates("chapter", False)
-        self.kwdict = {}
-
-        # user-supplied metadata
-        kwdict = self.extractor.config("keywords")
-        if kwdict:
-            self.kwdict.update(kwdict)
-
         # data from parent job
         if parent:
             pextr = parent.extractor
 
             # transfer (sub)category
             if pextr.config("category-transfer", pextr.categorytransfer):
+                extr._cfgpath = pextr._cfgpath
                 extr.category = pextr.category
                 extr.subcategory = pextr.subcategory
-                extr._cfgpath = pextr._cfgpath
-
-            # transfer parent directory
-            extr._parentdir = pextr._parentdir
 
             # reuse connection adapters
             extr.session.adapters = pextr.session.adapters
+
+        # user-supplied metadata
+        kwdict = self.extractor.config("keywords")
+        if kwdict:
+            self.kwdict.update(kwdict)
+
+        # predicates
+        self.pred_url = self._prepare_predicates("image", True)
+        self.pred_queue = self._prepare_predicates("chapter", False)
 
     def run(self):
         """Execute or run the job"""
@@ -78,6 +78,8 @@ class Job():
             if exc.message:
                 log.error(exc.message)
             self.status |= exc.code
+        except exception.TerminateExtraction:
+            raise
         except exception.GalleryDLException as exc:
             log.error("%s: %s", exc.__class__.__name__, exc)
             self.status |= exc.code
@@ -188,7 +190,7 @@ class Job():
 class DownloadJob(Job):
     """Download images into appropriate directory/filename locations"""
 
-    def __init__(self, url, parent=None, kwdict=None):
+    def __init__(self, url, parent=None):
         Job.__init__(self, url, parent)
         self.log = self.get_logger("download")
         self.blacklist = None
@@ -197,19 +199,8 @@ class DownloadJob(Job):
         self.hooks = ()
         self.downloaders = {}
         self.out = output.select()
-
-        if parent:
-            self.visited = parent.visited
-            pfmt = parent.pathfmt
-            if pfmt and parent.extractor.config("parent-directory"):
-                self.extractor._parentdir = pfmt.directory
-            if parent.extractor.config("parent-metadata"):
-                if parent.kwdict:
-                    self.kwdict.update(parent.kwdict)
-                if kwdict:
-                    self.kwdict.update(kwdict)
-        else:
-            self.visited = set()
+        self.visited = parent.visited if parent else set()
+        self._skipcnt = 0
 
     def handle_url(self, url, kwdict):
         """Download the resource specified in 'url'"""
@@ -302,7 +293,27 @@ class DownloadJob(Job):
                     extr = None
 
         if extr:
-            self.status |= self.__class__(extr, self, kwdict).run()
+            job = self.__class__(extr, self)
+            pfmt = self.pathfmt
+            pextr = self.extractor
+
+            if pfmt and pextr.config("parent-directory"):
+                extr._parentdir = pfmt.directory
+            else:
+                extr._parentdir = pextr._parentdir
+
+            if pextr.config("parent-metadata"):
+                if self.kwdict:
+                    job.kwdict.update(self.kwdict)
+                if kwdict:
+                    job.kwdict.update(kwdict)
+
+            if pextr.config("parent-skip"):
+                job._skipcnt = self._skipcnt
+                self.status |= job.run()
+                self._skipcnt = job._skipcnt
+            else:
+                self.status |= job.run()
         else:
             self._write_unsupported(url)
 
@@ -365,17 +376,17 @@ class DownloadJob(Job):
 
     def initialize(self, kwdict=None):
         """Delayed initialization of PathFormat, etc."""
-        config = self.extractor.config
+        cfg = self.extractor.config
         pathfmt = self.pathfmt = util.PathFormat(self.extractor)
         if kwdict:
             pathfmt.set_directory(kwdict)
 
-        self.sleep = config("sleep")
-        if not config("download", True):
+        self.sleep = cfg("sleep")
+        if not cfg("download", True):
             # monkey-patch method to do nothing and always return True
             self.download = pathfmt.fix_extension
 
-        archive = config("archive")
+        archive = cfg("archive")
         if archive:
             path = util.expand_path(archive)
             try:
@@ -389,7 +400,7 @@ class DownloadJob(Job):
             else:
                 self.extractor.log.debug("Using download archive '%s'", path)
 
-        skip = config("skip", True)
+        skip = cfg("skip", True)
         if skip:
             self._skipexc = None
             if skip == "enumerate":
@@ -398,9 +409,10 @@ class DownloadJob(Job):
                 skip, _, smax = skip.partition(":")
                 if skip == "abort":
                     self._skipexc = exception.StopExtraction
+                elif skip == "terminate":
+                    self._skipexc = exception.TerminateExtraction
                 elif skip == "exit":
                     self._skipexc = sys.exit
-                self._skipcnt = 0
                 self._skipmax = text.parse_int(smax)
         else:
             # monkey-patch methods to always return False
@@ -416,7 +428,10 @@ class DownloadJob(Job):
             category = self.extractor.category
             basecategory = self.extractor.basecategory
 
+            pp_conf = config.get((), "postprocessor") or {}
             for pp_dict in postprocessors:
+                if isinstance(pp_dict, str):
+                    pp_dict = pp_conf.get(pp_dict) or {"name": pp_dict}
 
                 whitelist = pp_dict.get("whitelist")
                 if whitelist and category not in whitelist and \
@@ -447,6 +462,23 @@ class DownloadJob(Job):
                 if "init" in self.hooks:
                     for callback in self.hooks["init"]:
                         callback(pathfmt)
+
+    def register_hooks(self, hooks, options=None):
+        expr = options.get("filter") if options else None
+
+        if expr:
+            condition = util.compile_expression(expr)
+            for hook, callback in hooks.items():
+                self.hooks[hook].append(functools.partial(
+                    self._call_hook, callback, condition))
+        else:
+            for hook, callback in hooks.items():
+                self.hooks[hook].append(callback)
+
+    @staticmethod
+    def _call_hook(callback, condition, pathfmt):
+        if condition(pathfmt.kwdict):
+            callback(pathfmt)
 
     def _build_blacklist(self):
         wlist = self.extractor.config("whitelist")
@@ -586,10 +618,16 @@ class UrlJob(Job):
             for url in kwdict["_fallback"]:
                 print("|", url)
 
-    def handle_queue(self, url, _):
-        try:
-            UrlJob(url, self, self.depth + 1).run()
-        except exception.NoExtractorError:
+    def handle_queue(self, url, kwdict):
+        cls = kwdict.get("_extractor")
+        if cls:
+            extr = cls.from_url(url)
+        else:
+            extr = extractor.find(url)
+
+        if extr:
+            self.status |= self.__class__(extr, self, self.depth + 1).run()
+        else:
             self._write_unsupported(url)
 
 
@@ -636,7 +674,7 @@ class DataJob(Job):
         self.ascii = config.get(("output",), "ascii", ensure_ascii)
 
         private = config.get(("output",), "private")
-        self.filter = (lambda x: x) if private else util.filter_dict
+        self.filter = util.identity if private else util.filter_dict
 
     def run(self):
         sleep = self.extractor.config("sleep-extractor")

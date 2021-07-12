@@ -10,7 +10,7 @@
 
 from .booru import BooruExtractor
 from .common import Message
-from .. import text, exception
+from .. import text, util, exception
 from ..cache import cache
 import collections
 
@@ -54,14 +54,16 @@ class SankakuExtractor(BooruExtractor):
     def _prepare(post):
         post["created_at"] = post["created_at"]["s"]
         post["date"] = text.parse_timestamp(post["created_at"])
-        post["tags"] = [tag["name"] for tag in post["tags"]]
+        post["tags"] = [tag["name"] for tag in post["tags"] if tag["name"]]
         post["tag_string"] = " ".join(post["tags"])
 
     def _extended_tags(self, post):
         tags = collections.defaultdict(list)
         types = self.TAG_TYPES
         for tag in post["tags"]:
-            tags[types[tag["type"]]].append(tag["name"])
+            name = tag["name"]
+            if name:
+                tags[types[tag["type"]]].append(name)
         for key, value in tags.items():
             post["tags_" + key] = value
             post["tag_string_" + key] = " ".join(value)
@@ -160,6 +162,15 @@ class SankakuPostExtractor(SankakuExtractor):
             "pattern": r"https://s\.sankakucomplex\.com"
                        r"/data/13/3c/133cda3bfde249c504284493903fb985\.jpg",
         }),
+        # empty tags (#1617)
+        ("https://sankaku.app/post/show/20758561", {
+            "options": (("tags", True),),
+            "count": 1,
+            "keyword": {
+                "tags": list,
+                "tags_general": ["key(mangaka)", "key(mangaka)"],
+            },
+        }),
         ("https://beta.sankakucomplex.com/post/show/360451"),
         ("https://chan.sankakucomplex.com/post/show/360451"),
     )
@@ -206,7 +217,7 @@ class SankakuAPI():
 
         self.username, self.password = self.extractor._get_auth_info()
         if not self.username:
-            self.authenticate = lambda: None
+            self.authenticate = util.noop
 
     def pools(self, pool_id):
         params = {"lang": "en"}
@@ -250,7 +261,8 @@ class SankakuAPI():
                 success = True
             if not success:
                 code = data.get("code")
-                if code and code.endswith(("invalid-token", "invalid_token")):
+                if code and code.endswith(
+                        ("unauthorized", "invalid-token", "invalid_token")):
                     _authenticate_impl.invalidate(self.username)
                     continue
                 raise exception.StopExtraction(code)

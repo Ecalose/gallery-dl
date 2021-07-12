@@ -71,8 +71,8 @@ class WikiartArtistExtractor(WikiartExtractor):
     directory_fmt = ("{category}", "{artist[artistName]}")
     pattern = BASE_PATTERN + r"/(?!\w+-by-)([\w-]+)/?$"
     test = ("https://www.wikiart.org/en/thomas-cole", {
-        "url": "5ba2fbe6783fcce34e65014d16e5fbc581490c98",
-        "keyword": "eb5b141cf33e6d279afd1518aae24e61cc0adf81",
+        "url": "deabec0ed7efa97e2a729ff9d08b539143106bac",
+        "keyword": "751a5457b71c8704982d3bb6485a214cd3d07bf9",
     })
 
     def __init__(self, match):
@@ -97,8 +97,8 @@ class WikiartImageExtractor(WikiartArtistExtractor):
     pattern = BASE_PATTERN + r"/(?!(?:paintings|artists)-by-)([\w-]+)/([\w-]+)"
     test = (
         ("https://www.wikiart.org/en/thomas-cole/the-departure-1838", {
-            "url": "4d9fd87680a2620eaeaf1f13e3273475dec93231",
-            "keyword": "a1b083d500ce2fd364128e35b026e4ca526000cc",
+            "url": "976cc2545f308a650b5dbb35c29d3cee0f4673b3",
+            "keyword": "8e80cdcb01c1fedb934633d1c4c3ab0419cfbedf",
         }),
         # no year or '-' in slug
         ("https://www.wikiart.org/en/huang-shen/summer", {
